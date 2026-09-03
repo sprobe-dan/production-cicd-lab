@@ -28,5 +28,10 @@ jobs:
       - name: Display Python version
         run: python --version
 
+      - name: Deliberate failure
+        run: |
+          echo "Simulating a failed CI check"
+          exit 1
+
       - name: List repository files
         run: ls -la
