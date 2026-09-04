@@ -1,0 +1,22 @@
+name: production-cicd-lab-staging
+
+services:
+  api:
+    image: ${APP_IMAGE:?APP_IMAGE is required}
+    container_name: production-cicd-lab-staging
+    restart: unless-stopped
+
+    ports:
+      - "127.0.0.1:8000:8000"
+
+    init: true
+    read_only: true
+
+    tmpfs:
+      - /tmp:size=16m,mode=1777
+
+    security_opt:
+      - no-new-privileges:true
+
+    mem_limit: 256m
+    cpus: 0.50
