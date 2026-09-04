@@ -16,6 +16,13 @@ RUN python -m venv /opt/venv \
 
 FROM python:3.14-slim AS runtime
 
+ARG VCS_REF=unknown
+
+LABEL org.opencontainers.image.source="https://github.com/sprobe-dan/production-cicd-lab"
+LABEL org.opencontainers.image.title="Production CI/CD Lab"
+LABEL org.opencontainers.image.description="FastAPI application for production CI/CD training"
+LABEL org.opencontainers.image.revision=${VCS_REF}
+
 ENV PATH="/opt/venv/bin:$PATH" \
     PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1
