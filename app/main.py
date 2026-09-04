@@ -5,13 +5,16 @@ app = FastAPI(
     version="0.1.0",
 )
 
+
 @app.get("/")
-def read_root() -> dict[str,str]:
+def read_root() -> dict[str, str]:
     return {"message": "Production CI/CD Lab"}
+
 
 @app.get("/health")
 def health_check() -> dict[str, str]:
     return {"status": "healthy"}
+
 
 @app.get("/version")
 def version() -> dict[str, str]:

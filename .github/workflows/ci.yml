@@ -9,15 +9,22 @@ on:
   pull_request:
     branches:
       - main
-
   workflow_dispatch:
 
 permissions:
   contents: read
 
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  PIP_DISABLE_PIP_VERSION_CHECK: "1"
+  PYTHONDONTWRITEBYTECODE: "1"
+
 jobs:
-  explore-runner:
-    name: Run Python Tests
+  quality:
+    name: Check code quality
     runs-on: ubuntu-latest
     timeout-minutes: 10
 
@@ -28,15 +35,51 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.14'
-
-      - name: Display Python Version
-        run: python --version
+          python-version: "3.14"
+          cache: pip
+          cache-dependency-path: |
+            requirements.txt
+            requirements-dev.txt
 
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements-dev.txt
+          python -m pip install \
+            --require-hashes \
+            -r requirements.txt \
+            -r requirements-dev.txt
 
-      - name: Run Tests
+      - name: Check linting
+        run: ruff check .
+
+      - name: Check formatting
+        run: ruff format --check .
+
+  test:
+    name: Run Python tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+          cache: pip
+          cache-dependency-path: |
+            requirements.txt
+            requirements-dev.txt
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install \
+            --require-hashes \
+            -r requirements.txt \
+            -r requirements-dev.txt
+
+      - name: Run tests
         run: python -m pytest -v
