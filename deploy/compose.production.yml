@@ -1,0 +1,22 @@
+name: production-cicd-lab-production
+
+services:
+  api:
+    image: ${APP_IMAGE:?APP_IMAGE is required}
+    container_name: production-cicd-lab-production
+    restart: unless-stopped
+
+    ports:
+      - "127.0.0.1:8001:8000"
+
+    init: true
+    read_only: true
+
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=64m
+
+    security_opt:
+      - no-new-privileges:true
+
+    mem_limit: 256m
+    cpus: 0.50
