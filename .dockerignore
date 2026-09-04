@@ -1,0 +1,12 @@
+.git
+.github
+.venv
+**pycache**
+\*.py[cod]
+.pytest_cache
+.ruff_cache
+tests
+README.md
+requirements-dev.in
+requirements-dev.txt
+pyproject.toml
