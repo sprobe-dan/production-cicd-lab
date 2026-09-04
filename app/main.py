@@ -12,3 +12,7 @@ def read_root() -> dict[str,str]:
 @app.get("/health")
 def health_check() -> dict[str, str]:
     return {"status": "healthy"}
+
+@app.get("/version")
+def version() -> dict[str, str]:
+    return {"version": app.version}
