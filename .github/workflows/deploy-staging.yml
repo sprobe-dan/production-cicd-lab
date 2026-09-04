@@ -1,0 +1,98 @@
+name: Deploy staging
+
+on:
+  workflow_run:
+    workflows:
+      - CI
+    types:
+      - completed
+
+  workflow_dispatch:
+    inputs:
+      image_sha:
+        description: Full 40-character commit SHA to deploy
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-staging
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    if: >-
+      (github.event_name == 'workflow_run' &&
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.head_branch == 'main' &&
+      github.event.workflow_run.event == 'push') ||
+      github.event_name == 'workflow_dispatch'
+
+    runs-on: ubuntu-latest
+
+    environment:
+      name: staging
+      url: ${{ vars.STAGING_URL }}
+
+    env:
+      IMAGE_SHA: ${{ github.event_name == 'workflow_dispatch' && inputs.image_sha || github.event.workflow_run.head_sha }}
+
+    steps:
+      - name: Validate image SHA
+        run: |
+          if [[ ! "$IMAGE_SHA" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "Invalid commit SHA: $IMAGE_SHA"
+            exit 1
+          fi
+
+      - name: Check out deployed version
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ env.IMAGE_SHA }}
+
+      - name: Configure SSH
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.STAGING_SSH_KEY }}
+          SSH_KNOWN_HOSTS: ${{ secrets.STAGING_KNOWN_HOSTS }}
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/staging_deploy
+          printf '%s\n' "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/staging_deploy
+          chmod 644 ~/.ssh/known_hosts
+
+      - name: Upload deployment files
+        run: |
+          scp \
+            -i ~/.ssh/staging_deploy \
+            -o BatchMode=yes \
+            -o IdentitiesOnly=yes \
+            -o StrictHostKeyChecking=yes \
+            deploy/compose.staging.yml \
+            scripts/deploy.sh \
+            scripts/smoke-test.sh \
+            "${{ vars.STAGING_USER }}@${{ vars.STAGING_HOST }}:/opt/production-cicd-lab/"
+
+      - name: Deploy immutable image
+        run: |
+          ssh \
+            -i ~/.ssh/staging_deploy \
+            -o BatchMode=yes \
+            -o IdentitiesOnly=yes \
+            -o StrictHostKeyChecking=yes \
+            "${{ vars.STAGING_USER }}@${{ vars.STAGING_HOST }}" \
+            "chmod 750 /opt/production-cicd-lab/deploy.sh /opt/production-cicd-lab/smoke-test.sh && \
+            /opt/production-cicd-lab/deploy.sh \
+            ghcr.io/sprobe-dan/production-cicd-lab:${IMAGE_SHA}"
+
+      - name: Verify staging externally
+        run: |
+          curl \
+            --fail \
+            --silent \
+            --show-error \
+            --retry 5 \
+            --retry-delay 3 \
+            "${{ vars.STAGING_URL }}/health"
