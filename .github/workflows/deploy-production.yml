@@ -1,0 +1,88 @@
+name: Deploy production
+
+on:
+  workflow_dispatch:
+    inputs:
+      image_sha:
+        description: Full 40-character SHA already verified in staging
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    environment:
+      name: production
+      url: ${{ vars.PRODUCTION_URL }}
+
+    env:
+      IMAGE_SHA: ${{ inputs.image_sha }}
+      APP_IMAGE: ghcr.io/sprobe-dan/production-cicd-lab:${{ inputs.image_sha }}
+
+    steps:
+      - name: Validate image SHA
+        run: |
+          if [[ ! "${IMAGE_SHA}" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "Invalid commit SHA: ${IMAGE_SHA}"
+            exit 1
+          fi
+
+      - name: Check out selected release
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ env.IMAGE_SHA }}
+
+      - name: Verify published image exists
+        run: docker manifest inspect "${APP_IMAGE}" > /dev/null
+
+      - name: Configure SSH
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.PRODUCTION_SSH_KEY }}
+          SSH_KNOWN_HOSTS: ${{ secrets.PRODUCTION_KNOWN_HOSTS }}
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "${SSH_PRIVATE_KEY}" > ~/.ssh/production_deploy
+          printf '%s\n' "${SSH_KNOWN_HOSTS}" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/production_deploy
+          chmod 644 ~/.ssh/known_hosts
+
+      - name: Upload production deployment files
+        run: |
+          scp \
+            -i ~/.ssh/production_deploy \
+            -o BatchMode=yes \
+            -o IdentitiesOnly=yes \
+            -o StrictHostKeyChecking=yes \
+            deploy/compose.production.yml \
+            scripts/deploy-production.sh \
+            "${{ vars.PRODUCTION_USER }}@${{ vars.PRODUCTION_HOST }}:/opt/production-cicd-lab/"
+
+      - name: Deploy approved image
+        run: |
+          ssh \
+            -i ~/.ssh/production_deploy \
+            -o BatchMode=yes \
+            -o IdentitiesOnly=yes \
+            -o StrictHostKeyChecking=yes \
+            "${{ vars.PRODUCTION_USER }}@${{ vars.PRODUCTION_HOST }}" \
+            "chmod 750 /opt/production-cicd-lab/deploy-production.sh && \
+            /opt/production-cicd-lab/deploy-production.sh '${APP_IMAGE}'"
+
+      - name: Verify production externally
+        run: |
+          curl \
+            --fail \
+            --silent \
+            --show-error \
+            --retry 5 \
+            --retry-delay 3 \
+            "${{ vars.PRODUCTION_URL }}/health"
