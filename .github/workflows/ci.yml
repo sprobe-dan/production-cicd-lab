@@ -100,6 +100,7 @@ jobs:
         run: |
           docker build \
             --tag production-cicd-lab:${{ github.sha }} \
+            .
 
       - name: Start container
         run: |
@@ -125,7 +126,7 @@ jobs:
             sleep 2
           done
 
-          echo "Application did not becme health"
+          echo "Application did not become healthy"
           exit 1
 
       - name: Verify version endpoint
@@ -135,7 +136,7 @@ jobs:
             --show-error \
             http://127.0.0.1:8000/version
 
-      - name: Verifiy non-root container user
+      - name: Verify non-root container user
         run: docker exec production-cicd-lab id
 
       - name: Display container logs
