@@ -1,0 +1,70 @@
+name: Migration CI
+
+on:
+  pull_request:
+    branches:
+      - main
+
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+concurrency:
+  group: migration-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  migration-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    services:
+      postgres:
+        image: postgres:17-alpine
+
+        env:
+          POSTGRES_DB: cicd_lab
+          POSTGRES_USER: cicd_user
+          POSTGRES_PASSWORD: cicd_password
+
+        ports:
+          - 5432:5432
+
+        options: >-
+          --health-cmd "pg_isready -U cicd_user -d cicd_lab"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      DATABASE_URL: postgresql+psycopg://cicd_user:cicd_password@127.0.0.1:5432/cicd_lab?connect_timeout=5
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v5
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements.txt
+
+      - name: Install locked dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install \
+            --require-hashes \
+            --requirement requirements.txt
+
+      - name: Apply all migrations
+        run: alembic upgrade head
+
+      - name: Detect missing migrations
+        run: alembic check
+
+      - name: Display current revision
+        run: alembic current
