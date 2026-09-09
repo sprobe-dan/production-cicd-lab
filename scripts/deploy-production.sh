@@ -8,8 +8,7 @@ ENV_FILE="${APP_DIR}/.env.production"
 APP_IMAGE="${1:-}"
 
 if [[ ! "${APP_IMAGE}" =~ ^ghcr\.io/sprobe-dan/production-cicd-lab:[0-9a-f]{40}$ ]]; then
-  echo "Error: provide an immutable production image with a full commit SHA."
-  echo "Example: ghcr.io/sprobe-dan/production-cicd-lab:<40-character-sha>"
+  echo "Error: provide an immutable image tagged with a full commit SHA."
   exit 1
 fi
 
@@ -18,24 +17,71 @@ if [[ ! -f "${COMPOSE_FILE}" ]]; then
   exit 1
 fi
 
+if [[ ! -f "${ENV_FILE}" ]]; then
+  echo "Error: ${ENV_FILE} does not exist."
+  exit 1
+fi
+
+DB_PASSWORD="$(
+  awk -F= '
+    $1 == "DB_PASSWORD" {
+      print substr($0, index($0, "=") + 1)
+      exit
+    }
+  ' "${ENV_FILE}"
+)"
+
+if [[ ! "${DB_PASSWORD}" =~ ^[0-9a-f]{64}$ ]]; then
+  echo "Error: DB_PASSWORD is missing or invalid."
+  exit 1
+fi
+
 umask 077
-printf 'APP_IMAGE=%s\n' "${APP_IMAGE}" > "${ENV_FILE}"
 
-echo "Pulling production image: ${APP_IMAGE}"
+TEMP_ENV_FILE="$(mktemp "${APP_DIR}/.env.production.tmp.XXXXXX")"
+trap 'rm -f "${TEMP_ENV_FILE}"' EXIT
 
-docker compose \
-  --project-name production-cicd-lab-production \
-  --env-file "${ENV_FILE}" \
-  --file "${COMPOSE_FILE}" \
-  pull
+printf 'DB_PASSWORD=%s\n' "${DB_PASSWORD}" > "${TEMP_ENV_FILE}"
+printf 'APP_IMAGE=%s\n' "${APP_IMAGE}" >> "${TEMP_ENV_FILE}"
 
-echo "Starting production container"
+chmod 600 "${TEMP_ENV_FILE}"
+mv "${TEMP_ENV_FILE}" "${ENV_FILE}"
 
-docker compose \
-  --project-name production-cicd-lab-production \
-  --env-file "${ENV_FILE}" \
-  --file "${COMPOSE_FILE}" \
-  up --detach --remove-orphans --wait --wait-timeout 60
+compose=(
+  docker compose
+  --project-name production-cicd-lab-production
+  --env-file "${ENV_FILE}"
+  --file "${COMPOSE_FILE}"
+)
+
+echo "Pulling production images"
+
+"${compose[@]}" pull
+
+echo "Starting the production database"
+
+"${compose[@]}" up \
+  --detach \
+  --wait \
+  --wait-timeout 60 \
+  db
+
+echo "Applying production database migrations"
+
+"${compose[@]}" run \
+  --rm \
+  --no-deps \
+  api \
+  alembic upgrade head
+
+echo "Starting the production application"
+
+"${compose[@]}" up \
+  --detach \
+  --remove-orphans \
+  --wait \
+  --wait-timeout 60 \
+  api
 
 echo "Running production smoke test"
 
@@ -49,13 +95,7 @@ if ! curl \
   http://127.0.0.1:8001/health > /dev/null; then
 
   echo "Production smoke test failed."
-
-  docker compose \
-    --project-name production-cicd-lab-production \
-    --env-file "${ENV_FILE}" \
-    --file "${COMPOSE_FILE}" \
-    logs --tail 100
-
+  "${compose[@]}" logs --tail 100
   exit 1
 fi
 
