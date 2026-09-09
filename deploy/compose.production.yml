@@ -1,10 +1,40 @@
 name: production-cicd-lab-production
 
 services:
+  db:
+    image: postgres:17-alpine
+    container_name: production-cicd-lab-postgres-production
+    restart: unless-stopped
+
+    environment:
+      POSTGRES_DB: cicd_lab
+      POSTGRES_USER: cicd_user
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD is required}
+
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - pg_isready -U cicd_user -d cicd_lab
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+    mem_limit: 256m
+
   api:
     image: ${APP_IMAGE:?APP_IMAGE is required}
     container_name: production-cicd-lab-production
     restart: unless-stopped
+
+    environment:
+      DATABASE_URL: postgresql+psycopg://cicd_user:${DB_PASSWORD}@db:5432/cicd_lab
+
+    depends_on:
+      db:
+        condition: service_healthy
 
     ports:
       - "127.0.0.1:8001:8000"
@@ -20,3 +50,6 @@ services:
 
     mem_limit: 256m
     cpus: 0.50
+
+volumes:
+  postgres_data:
