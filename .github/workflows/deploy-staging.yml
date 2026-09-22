@@ -73,6 +73,7 @@ jobs:
             deploy/compose.staging.yml \
             scripts/deploy.sh \
             scripts/smoke-test.sh \
+            scripts/rollback.sh \
             "${{ vars.STAGING_USER }}@${{ vars.STAGING_HOST }}:/opt/production-cicd-lab/"
 
       - name: Deploy immutable image
@@ -83,7 +84,10 @@ jobs:
             -o IdentitiesOnly=yes \
             -o StrictHostKeyChecking=yes \
             "${{ vars.STAGING_USER }}@${{ vars.STAGING_HOST }}" \
-            "chmod 750 /opt/production-cicd-lab/deploy.sh /opt/production-cicd-lab/smoke-test.sh && \
+            "chmod 750 \
+            /opt/production-cicd-lab/deploy.sh \
+            /opt/production-cicd-lab/smoke-test.sh \
+            /opt/production-cicd-lab/rollback.sh && \
             /opt/production-cicd-lab/deploy.sh \
             ghcr.io/sprobe-dan/production-cicd-lab:${IMAGE_SHA}"
 
