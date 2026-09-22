@@ -61,6 +61,18 @@ printf 'APP_IMAGE=%s\n' "${APP_IMAGE}" >> "${TEMP_ENV_FILE}"
 chmod 600 "${TEMP_ENV_FILE}"
 mv "${TEMP_ENV_FILE}" "${ENV_FILE}"
 
+DEPLOYED_IMAGE="$(
+  docker inspect \
+    --format='{{.Config.Image}}' \
+    "${CONTAINER_NAME}" \
+    2>/dev/null || true
+)"
+
+if [[ "${DEPLOYED_IMAGE}" =~ ^ghcr\.io/sprobe-dan/production-cicd-lab:[0-9a-f]{40}$ ]] &&
+  [[ "${DEPLOYED_IMAGE}" != "${APP_IMAGE}" ]]; then
+  write_state_file "${PREVIOUS_IMAGE_FILE}" "${DEPLOYED_IMAGE}"
+fi
+
 compose=(
   docker compose
   --project-name production-cicd-lab-production
@@ -114,5 +126,7 @@ if ! curl \
 fi
 
 docker image prune --force
+
+write_state_file "${CURRENT_IMAGE_FILE}" "${APP_IMAGE}"
 
 echo "Production deployment completed successfully."
