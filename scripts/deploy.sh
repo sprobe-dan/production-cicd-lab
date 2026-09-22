@@ -92,7 +92,7 @@ if ! curl \
   --retry 10 \
   --retry-delay 2 \
   --retry-connrefused \
-  http://127.0.0.1:8000/health > /dev/null; then
+  http://127.0.0.1:8000/ready > /dev/null; then
 
   echo "Staging smoke test failed."
   "${compose[@]}" logs --tail 100
