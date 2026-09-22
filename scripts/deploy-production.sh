@@ -6,6 +6,20 @@ APP_DIR="/opt/production-cicd-lab"
 COMPOSE_FILE="${APP_DIR}/compose.production.yml"
 ENV_FILE="${APP_DIR}/.env.production"
 APP_IMAGE="${1:-}"
+CONTAINER_NAME="production-cicd-lab-production"
+CURRENT_IMAGE_FILE="${APP_DIR}/.current-image.production"
+PREVIOUS_IMAGE_FILE="${APP_DIR}/.previous-image.production"
+
+write_state_file() {
+  local destination="$1"
+  local value="$2"
+  local temporary_file
+
+  temporary_file="$(mktemp "${destination}.tmp.XXXXXX")"
+  printf '%s\n' "${value}" > "${temporary_file}"
+  chmod 600 "${temporary_file}"
+  mv "${temporary_file}" "${destination}"
+}
 
 if [[ ! "${APP_IMAGE}" =~ ^ghcr\.io/sprobe-dan/production-cicd-lab:[0-9a-f]{40}$ ]]; then
   echo "Error: provide an immutable image tagged with a full commit SHA."

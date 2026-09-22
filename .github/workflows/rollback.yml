@@ -1,0 +1,108 @@
+name: Rollback
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Environment to roll back
+        required: true
+        type: choice
+        options:
+          - staging
+          - production
+
+permissions:
+  contents: read
+
+jobs:
+  rollback-staging:
+    if: ${{ inputs.environment == 'staging' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    environment:
+      name: staging
+      url: ${{ vars.STAGING_URL }}
+
+    concurrency:
+      group: deploy-staging
+      cancel-in-progress: false
+
+    steps:
+      - name: Configure SSH
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.STAGING_SSH_KEY }}
+          SSH_KNOWN_HOSTS: ${{ secrets.STAGING_KNOWN_HOSTS }}
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "${SSH_PRIVATE_KEY}" > ~/.ssh/staging_deploy
+          printf '%s\n' "${SSH_KNOWN_HOSTS}" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/staging_deploy
+          chmod 644 ~/.ssh/known_hosts
+
+      - name: Roll back staging
+        run: |
+          ssh \
+            -i ~/.ssh/staging_deploy \
+            -o BatchMode=yes \
+            -o IdentitiesOnly=yes \
+            -o StrictHostKeyChecking=yes \
+            "${{ vars.STAGING_USER }}@${{ vars.STAGING_HOST }}" \
+            "chmod 750 /opt/production-cicd-lab/rollback.sh && \
+            /opt/production-cicd-lab/rollback.sh staging"
+
+      - name: Verify staging
+        run: |
+          curl \
+            --fail \
+            --silent \
+            --show-error \
+            --retry 5 \
+            --retry-delay 3 \
+            "${{ vars.STAGING_URL }}/ready"
+
+  rollback-production:
+    if: ${{ inputs.environment == 'production' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    environment:
+      name: production
+      url: ${{ vars.PRODUCTION_URL }}
+
+    concurrency:
+      group: deploy-production
+      cancel-in-progress: false
+
+    steps:
+      - name: Configure SSH
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.PRODUCTION_SSH_KEY }}
+          SSH_KNOWN_HOSTS: ${{ secrets.PRODUCTION_KNOWN_HOSTS }}
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "${SSH_PRIVATE_KEY}" > ~/.ssh/production_deploy
+          printf '%s\n' "${SSH_KNOWN_HOSTS}" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/production_deploy
+          chmod 644 ~/.ssh/known_hosts
+
+      - name: Roll back production
+        run: |
+          ssh \
+            -i ~/.ssh/production_deploy \
+            -o BatchMode=yes \
+            -o IdentitiesOnly=yes \
+            -o StrictHostKeyChecking=yes \
+            "${{ vars.PRODUCTION_USER }}@${{ vars.PRODUCTION_HOST }}" \
+            "chmod 750 /opt/production-cicd-lab/rollback.sh && \
+            /opt/production-cicd-lab/rollback.sh production"
+
+      - name: Verify production
+        run: |
+          curl \
+            --fail \
+            --silent \
+            --show-error \
+            --retry 5 \
+            --retry-delay 3 \
+            "${{ vars.PRODUCTION_URL }}/ready"
