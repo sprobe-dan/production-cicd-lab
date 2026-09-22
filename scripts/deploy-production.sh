@@ -92,7 +92,7 @@ if ! curl \
   --retry 10 \
   --retry-delay 2 \
   --retry-connrefused \
-  http://127.0.0.1:8001/health > /dev/null; then
+  http://127.0.0.1:8001/ready > /dev/null; then
 
   echo "Production smoke test failed."
   "${compose[@]}" logs --tail 100

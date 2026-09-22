@@ -63,6 +63,32 @@ jobs:
       - name: Apply all migrations
         run: alembic upgrade head
 
+      - name: Verify database-backed readiness
+        run: |
+          uvicorn app.main:app \
+            --host 127.0.0.1 \
+            --port 8000 \
+            > /tmp/uvicorn.log 2>&1 &
+
+          APP_PID=$!
+          trap 'kill "${APP_PID}" 2>/dev/null || true' EXIT
+
+          for attempt in {1..15}; do
+            if curl \
+              --fail \
+              --silent \
+              --show-error \
+              http://127.0.0.1:8000/ready; then
+              exit 0
+            fi
+
+            echo "Waiting for application readiness (${attempt}/15)"
+            sleep 2
+          done
+
+          cat /tmp/uvicorn.log
+          exit 1
+
       - name: Detect missing migrations
         run: alembic check
 

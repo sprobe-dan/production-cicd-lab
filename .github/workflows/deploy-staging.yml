@@ -95,4 +95,4 @@ jobs:
             --show-error \
             --retry 5 \
             --retry-delay 3 \
-            "${{ vars.STAGING_URL }}/health"
+            "${{ vars.STAGING_URL }}/ready"
