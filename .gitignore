@@ -216,3 +216,16 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+
+# Private keys
+*.pem
+*.key
+id_rsa
+id_ed25519
+staging_deploy
+production_deploy
+
+# Server deployment state
+.current-image.*
+.previous-image.*
