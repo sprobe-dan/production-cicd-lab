@@ -1,0 +1,42 @@
+# One-environment example. Set ENVIRONMENT, APP_PORT, DB_PASSWORD and APP_IMAGE
+# in the shell or a protected --env-file. Choose a unique --project-name.
+# The production scripts do not consume this template; use their checked-in
+# compose.staging.yml and compose.production.yml unchanged.
+services:
+  db:
+    image: postgres:17-alpine
+    container_name: production-cicd-lab-postgres-${ENVIRONMENT:?ENVIRONMENT is required}
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: cicd_lab
+      POSTGRES_USER: cicd_user
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD is required}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U cicd_user -d cicd_lab"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    mem_limit: 256m
+  api:
+    image: ${APP_IMAGE:?APP_IMAGE is required}
+    container_name: production-cicd-lab-${ENVIRONMENT:?ENVIRONMENT is required}
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql+psycopg://cicd_user:${DB_PASSWORD}@db:5432/cicd_lab
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:${APP_PORT:?APP_PORT is required}:8000"
+    init: true
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=64m
+    security_opt:
+      - no-new-privileges:true
+    mem_limit: 256m
+    cpus: 0.50
+volumes:
+  postgres_data:
