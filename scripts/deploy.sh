@@ -88,18 +88,6 @@ if [[ "${DEPLOYED_IMAGE}" =~ ^ghcr\.io/sprobe-dan/production-cicd-lab:[0-9a-f]{4
   write_state_file "${PREVIOUS_IMAGE_FILE}" "${DEPLOYED_IMAGE}"
 fi
 
-DEPLOYED_IMAGE="$(
-  docker inspect \
-    --format='{{.Config.Image}}' \
-    "${CONTAINER_NAME}" \
-    2>/dev/null || true
-)"
-
-if [[ "${DEPLOYED_IMAGE}" =~ ^ghcr\.io/sprobe-dan/production-cicd-lab:[0-9a-f]{40}$ ]] &&
-  [[ "${DEPLOYED_IMAGE}" != "${APP_IMAGE}" ]]; then
-  write_state_file "${PREVIOUS_IMAGE_FILE}" "${DEPLOYED_IMAGE}"
-fi
-
 echo "Pulling staging images"
 
 "${compose[@]}" pull
@@ -123,12 +111,6 @@ else
     api \
     alembic upgrade head
 fi
-
-"${compose[@]}" run \
-  --rm \
-  --no-deps \
-  api \
-  alembic upgrade head
 
 echo "Starting the staging application"
 

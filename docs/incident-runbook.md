@@ -43,7 +43,7 @@ curl --fail --show-error PRODUCTION_URL/ready
 
 ```bash
 ssh \
-  -i ~/.ssh/production_cicd_lab \
+  -i ~/.ssh/production_cicd_lab_staging \
   deploy@YOUR_DROPLET_IP
 ```
 
@@ -153,7 +153,7 @@ For production:
 3. Wait for the rollback and readiness verification.
 4. Verify the public production endpoint.
 
-If GitHub Actions is unavailable, follow the emergency server-side procedure in `docs/rollback.md`.
+If GitHub Actions is unavailable, follow the emergency server-side procedure in [the rollback runbook](rollback.md).
 
 ### Application is healthy but readiness fails
 

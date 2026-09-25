@@ -6,21 +6,28 @@ A hands-on project for learning how to build a production-ready CI/CD pipeline u
 
 ## Current Pipeline
 
-The current workflow runs when:
+The CI workflow runs when:
 
 - Code is pushed to `main`
+- A pull request targets `main`
 - It is manually triggered using `workflow_dispatch`
 
-The workflow:
+The pipeline:
 
-1. Creates a temporary Ubuntu runner
-2. Checks out the repository
-3. Executes diagnostic commands
-4. Reports whether the job passed or failed
+1. Runs linting, formatting, Python tests, and a Docker image smoke test.
+2. On a successful push to `main`, publishes the tested image to GHCR with a full commit SHA tag.
+3. Automatically deploys that image to staging.
+4. Deploys the same SHA to production through a manual, protected workflow.
 
 ```text
-Push or manual trigger
-→ Create runner
-→ Check out repository
-→ Execute steps
-→ Report success or failure
+Push to main -> CI and image publish -> staging -> approved production
+```
+
+## Documentation
+
+- [VPS and CI/CD setup](docs/vps-cicd-setup.md)
+- [Deployment runbook](docs/deployment.md)
+- [Rollback runbook](docs/rollback.md)
+- [Incident-response runbook](docs/incident-runbook.md)
+- [Backup and restore](docs/backup-restore.md)
+- [New-environment checklist](docs/new-environment-checklist.md)

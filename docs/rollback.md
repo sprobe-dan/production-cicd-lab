@@ -66,9 +66,11 @@ Use this only if GitHub Actions is unavailable.
 
 Connect as the deployment user:
 
+The key path below is the staging deployment identity created in [VPS setup](vps-cicd-setup.md); either authorized deployment identity can connect to this shared host.
+
 ```bash
 ssh \
-  -i ~/.ssh/production_cicd_lab \
+  -i ~/.ssh/production_cicd_lab_staging \
   deploy@YOUR_DROPLET_IP
 ```
 
