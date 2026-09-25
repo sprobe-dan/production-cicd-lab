@@ -9,6 +9,13 @@ APP_IMAGE="${1:-}"
 CONTAINER_NAME="production-cicd-lab-production"
 CURRENT_IMAGE_FILE="${APP_DIR}/.current-image.production"
 PREVIOUS_IMAGE_FILE="${APP_DIR}/.previous-image.production"
+SKIP_MIGRATIONS="${SKIP_MIGRATIONS:-false}"
+
+if [[ "${SKIP_MIGRATIONS}" != "true" ]] &&
+  [[ "${SKIP_MIGRATIONS}" != "false" ]]; then
+  echo "Error: SKIP_MIGRATIONS must be true or false."
+  exit 1
+fi
 
 write_state_file() {
   local destination="$1"
@@ -92,13 +99,17 @@ echo "Starting the production database"
   --wait-timeout 60 \
   db
 
-echo "Applying production database migrations"
+if [[ "${SKIP_MIGRATIONS}" == "true" ]]; then
+  echo "Skipping migrations during application rollback"
+else
+  echo "Applying production database migrations"
 
-"${compose[@]}" run \
-  --rm \
-  --no-deps \
-  api \
-  alembic upgrade head
+  "${compose[@]}" run \
+    --rm \
+    --no-deps \
+    api \
+    alembic upgrade head
+fi
 
 echo "Starting the production application"
 
